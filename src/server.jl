@@ -1,13 +1,17 @@
 function read_request(channel::gRPCChannel, controller::gRPCController, services)
+    @debug("before connection")
     connection = channel.session
+    @debug("before evt")
     evt = Session.take_evt!(connection)
 
+    @debug("before ifisa")
     if isa(evt, EvtGoaway)
         @debug("received EvtGoaway")
         close(channel)
         return (nothing, nothing, nothing)
     end
 
+    @debug("before notifisa")
     if !isa(evt, EvtRecvHeaders)
         @debug("unexpected event while reading request (closing channel)", evt)
         close(channel)
@@ -47,6 +51,7 @@ function read_request(channel::gRPCChannel, controller::gRPCController, services
 end
 
 function write_response(channel::gRPCChannel, controller::gRPCController, response)
+    @debug("write_response")
     sending_headers = [(":status", "200")]
     data_buff = to_delimited_message_bytes(response)
 
@@ -56,6 +61,7 @@ function write_response(channel::gRPCChannel, controller::gRPCController, respon
 end
 
 function call_method(channel::gRPCChannel, service::ServiceDescriptor, method::MethodDescriptor, controller::gRPCController, request)
+    @debug("call_method")
     write_request(channel, controller, service, method, request)
     response_type = get_response_type(method)
     response = response_type()
@@ -88,12 +94,17 @@ function process(controller::gRPCController, srvr::gRPCServer, channel::gRPCChan
     @info("start processing channel")
     try
         while(!channel.session.closed)
+            @info("start processing channel 0")
             service, method, request = read_request(channel, controller, srvr.services)
+            @info("start processing channel 1")
             (service === nothing) && continue
+            @info("start processing channel 2")
 
             response = call_method(service, method, controller, request)
+            @info("start processing channel 3")
             #@debug("response from method", response)
             write_response(channel, controller, response)
+            @info("start processing channel 4")
         end
     catch ex
         @warn("channel stopped with exception", ex)
